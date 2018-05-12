@@ -1,0 +1,8 @@
+[package]
+authors = ["hauleth"]
+name = "amigo"
+version = "0.1.0"
+[dependencies]
+clap = "2.31.2"
+image = "0.19.0"
+palette = "0.3.0"
