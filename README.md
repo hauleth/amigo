@@ -3,6 +3,13 @@
 ## Requirements
 
 - [Rust](https://www.rust-lang.org/)
+- [Git LFS](https://git-lfs.github.com)
+
+## Fetching
+
+```
+git clone https://github.com/hauleth/amigo.git
+```
 
 ## Building
 
