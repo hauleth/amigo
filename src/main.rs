@@ -31,36 +31,32 @@ fn dominant_color<Is: Iterator<Item = (u32, u32, impl Pixel<Subpixel = u8>)>>(in
         .map_or(0.0, |(idx, _)| idx as f64 * HUE_STEP)
 }
 
-fn merge<Is, Ib, Ps, Pb>(input: Is, color: f64, bg: Ib, output: &mut image::RgbaImage)
+fn merge<Is, Ib, Ps, Pb>(input: Is, color: f64, background: Ib, output: &mut image::RgbaImage)
 where
     Is: Iterator<Item = (u32, u32, Ps)>,
     Ib: Iterator<Item = (u32, u32, Pb)>,
-    Ps: Pixel<Subpixel = u8>,
-    Pb: Pixel<Subpixel = u8>,
+    Ps: Pixel<Subpixel = u8> + Send,
+    Pb: Pixel<Subpixel = u8> + Send,
 {
-    for ((x, y, source), (_, _, background)) in input.zip(bg) {
-        let mut source = palette::Srgba::<f64>::from_pixel(&source.to_rgba().data);
-        let mut background = palette::Srgba::<f64>::from_pixel(&background.to_rgba().data);
+    input
+        .zip(background)
+        .map(|((x, y, source), (_, _, background))| (x, y, source, background))
+        .map(|(x, y, source, background)| {
+            let source = palette::Srgba::<f64>::from_pixel(&source.to_rgba().data);
+            let hsv = source.color.into_hsv::<Srgb>();
 
-        let hsv = source.color.into_hsv::<Srgb>();
+            let result: [u8; 4] = match (hsv.hue.to_positive_degrees(), hsv.saturation, hsv.value) {
+                (hue, saturation, value)
+                    if (hue - color).abs() <= 30.0 && saturation >= 0.4 && value >= 0.1 =>
+                {
+                    background.to_rgba().data
+                }
+                _ => source.into_pixel(),
+            };
 
-        let result = match (hsv.hue.to_positive_degrees(), hsv.saturation, hsv.value) {
-            (hue, saturation, value)
-                if (hue - color).abs() <= 20.0 && saturation >= 0.4 && value >= 0.1 =>
-            {
-                background
-            }
-            _ => source,
-        };
-
-        output.put_pixel(
-            x,
-            y,
-            image::Rgba {
-                data: result.into_pixel(),
-            },
-        );
-    }
+            (x, y, result)
+        })
+        .for_each(|(x, y, data)| output.put_pixel(x, y, image::Rgba { data }));
 }
 
 fn main() -> Result<(), Box<fmt::Error>> {
